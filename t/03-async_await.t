@@ -1,10 +1,10 @@
 use v5.10;
 use warnings;
 
-use Test::More tests => 7;
+use Test::More tests => 9;
 use Test::Warnings;
 
-use Async::JS qw/ Promise setTimeout async_sub await /;
+use Async::JS qw/ Promise setTimeout async_sub await throw /;
 
 use EV;
 
@@ -59,6 +59,34 @@ setTimeout(sub {
 	is_deeply \@events_3, [1, 2, 3], 'correct order of execution';
 }, 10);
 
+# die in async_sub
+my @events_4;
+async_sub {
+	push @events_4, 'start';
+	await async_sub {
+		push @events_4, 'middle';
+		throw 'peter';
+	}->();
+	push @events_4, 'end';
+}->()->then(undef, sub {
+	my ($err) = @_;
+	push @events_4, $err;
+});
+setTimeout(sub {
+	is_deeply \@events_4, ['start', 'middle', 'peter'], 'die in async_sub';
+}, 10);
+
+# await rejection
+my @events_5;
+async_sub {
+	push @events_5, 'start';
+	await Promise->reject(123);
+	push @events_5, 'end';
+}->()->then(undef, sub {
+	push @events_5, $_[0];
+});
+setTimeout(sub {
+	is_deeply \@events_5, ['start', 123], 'await rejection';
+}, 10);
 
 EV::run;
-done_testing;

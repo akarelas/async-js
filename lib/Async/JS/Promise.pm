@@ -163,5 +163,14 @@ sub catch {
 	return $self->then(undef, $on_rejected);
 }
 
+sub reject {
+	my ($class, $reason) = @_;
+
+	return $class->new(sub {
+		my ($resolve, $reject) = @_;
+		$reject->($reason);
+	});
+}
+
 
 1;
