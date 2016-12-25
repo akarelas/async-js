@@ -115,6 +115,24 @@ sub race {
 	});
 }
 
+sub reject {
+	my ($class, $reason) = @_;
+
+	return $class->new(sub {
+		my ($resolve, $reject) = @_;
+		$reject->($reason);
+	});
+}
+
+sub resolve {
+	my ($class, $value) = @_;
+
+	return $class->new(sub {
+		my ($resolve, $reject) = @_;
+		$resolve->($value);
+	});
+}
+
 sub _resolve {
 	my ($self, $value) = @_;
 	if ($self->state ne 'pending') { return; }
@@ -175,6 +193,13 @@ sub _reject {
 	});
 }
 
+sub cancel {
+	my ($self) = @_;
+
+	$self->state('cancelled')	unless $self->state ne 'pending';
+	delete $registry{ $self->index };
+}
+
 sub then {
 	my ($self, $on_fulfilled, $on_rejected) = @_;
 	my $new_p = __PACKAGE__->new_from_then;
@@ -214,24 +239,6 @@ sub then {
 sub catch {
 	my ($self, $on_rejected) = @_;
 	return $self->then(undef, $on_rejected);
-}
-
-sub reject {
-	my ($class, $reason) = @_;
-
-	return $class->new(sub {
-		my ($resolve, $reject) = @_;
-		$reject->($reason);
-	});
-}
-
-sub resolve {
-	my ($class, $value) = @_;
-
-	return $class->new(sub {
-		my ($resolve, $reject) = @_;
-		$resolve->($value);
-	});
 }
 
 

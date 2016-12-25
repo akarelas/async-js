@@ -241,5 +241,20 @@ setTimeout(sub {
 	is $result_1, 10, 'race 3';
 }, 100);
 
+# CANCEL
+my $p = Promise->new(sub {
+	my ($resolve, $reject) = @_;
+	setTimeout(sub {
+		$resolve->(100);
+	}, 100);
+});
+$p->then(
+	sub { fail; },
+	sub { fail; },
+);
+setTimeout(sub {
+	$p->cancel;
+}, 1);
+
 
 EV::run;
