@@ -64,8 +64,60 @@ sub new_from_then {
 	return $self;
 }
 
+sub all {
+	my ($class, $promises) = @_;
+
+	my $return = [];
+	my $num_completed = 0;
+
+	return $class->new(sub {
+		my ($resolve, $reject) = @_;
+		for (my $i = 0; $i < @$promises; $i++) {
+			my $j = $i;
+			my $p = $promises->[$j];
+			$p->then(
+				sub {
+					my ($value) = @_;
+					$num_completed++;
+					$return->[$j] = $value;
+					if ($num_completed == @$promises) {
+						$resolve->($return);
+					}
+				},
+				sub {
+					my ($err) = @_;
+					$reject->($err);
+				},
+			);
+		}
+	});
+}
+
+sub race {
+	my ($class, $promises) = @_;
+
+	return $class->new(sub {
+		my ($resolve, $reject) = @_;
+		for (my $i = 0; $i < @$promises; $i++) {
+			my $j = $i;
+			my $p = $promises->[$j];
+			$p->then(
+				sub {
+					my ($value) = @_;
+					$resolve->($value);
+				},
+				sub {
+					my ($err) = @_;
+					$reject->($err);
+				},
+			);
+		}
+	});
+}
+
 sub _resolve {
 	my ($self, $value) = @_;
+	if ($self->state ne 'pending') { return; }
 	if (blessed($value) and $value->can('then')) {
 		$value->then(
 			sub {
@@ -100,6 +152,7 @@ sub _resolve {
 
 sub _reject {
 	my ($self, $reason) = @_;
+	if ($self->state ne 'pending') { return; }
 	my $r = Async::JS::Exception->decode_maybe($reason);
 	foreach my $then (@{ $self->thens }) {
 		Mojo::IOLoop->next_tick(sub {
@@ -169,6 +222,15 @@ sub reject {
 	return $class->new(sub {
 		my ($resolve, $reject) = @_;
 		$reject->($reason);
+	});
+}
+
+sub resolve {
+	my ($class, $value) = @_;
+
+	return $class->new(sub {
+		my ($resolve, $reject) = @_;
+		$resolve->($value);
 	});
 }
 

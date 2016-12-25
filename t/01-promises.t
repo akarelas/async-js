@@ -1,7 +1,7 @@
 use v5.10;
 use warnings;
 
-use Test::More tests => 15;
+use Test::More tests => 21;
 use Test::Warnings;
 
 use Async::JS qw/ setTimeout setInterval clearInterval Promise throw /;
@@ -169,6 +169,77 @@ Promise->new(sub {
 		is $reason, 'peter', 'a promise may simply reject async';
 	}
 );
+
+# ALL
+my @ps;
+for my $i (1..10) {
+	my $j = $i;
+	push @ps, Promise->new(sub {
+		my ($resolve, $reject) = @_;
+		setTimeout(sub {
+			$resolve->($j * 10);
+		}, 100);
+	});
+}
+Promise->all(\@ps)->then(
+	sub {
+		my ($ret) = @_;
+		is_deeply $ret, [10, 20, 30, 40, 50, 60, 70, 80, 90, 100], '->all(10 promises)';
+	},
+	sub {
+		fail;
+	},
+);
+
+my @events_1;
+Promise->all([
+	Promise->new(sub {
+		my ($resolve, $reject) = @_;
+		setTimeout(sub {
+			$resolve->(20);
+		}, 100);
+	}),
+	Promise->reject(10),
+])->then(
+	sub { push @events_1, $_[0]; },
+	sub { push @events_1, "error $_[0]"; },
+);
+
+setTimeout(sub {
+	is_deeply \@events_1, ['error 10'], 'all with rejection';
+}, 20);
+setTimeout(sub {
+	is_deeply \@events_1, ['error 10'], 'all with rejection';
+}, 110);
+
+# RACE
+my $result_1;
+Promise->race([
+	Promise->new(sub {
+		my ($resolve, $reject) = @_;
+		setTimeout(sub {
+			$resolve->(20);
+		}, 50);
+	}),
+	Promise->new(sub {
+		my ($resolve, $reject) = @_;
+		setTimeout(sub {
+			$resolve->(10);
+		}, 1);
+	}),
+])->then(
+	sub { $result_1 = $_[0]; },
+	sub { fail; },
+);
+setTimeout(sub {
+	is $result_1, undef, 'race 1';
+});
+setTimeout(sub {
+	is $result_1, 10, 'race 2';
+}, 30);
+setTimeout(sub {
+	is $result_1, 10, 'race 3';
+}, 100);
 
 
 EV::run;
