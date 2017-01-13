@@ -1,6 +1,14 @@
 use v5.10;
 use warnings;
 
+BEGIN {
+	my $has_coro = eval "use Coro; 1";
+	if (! $has_coro) {
+		eval "use Test::More skip_all => 'Coro not installed';";
+		exit;
+	}
+}
+
 use Test::More tests => 9;
 use Test::Warnings;
 

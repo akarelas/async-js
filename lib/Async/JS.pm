@@ -7,11 +7,21 @@ use Mojo::IOLoop;
 use Async::JS::Promise;
 use Async::JS::Exception;
 use Async::JS::Observable;
-eval "use Async::JS::AsyncAwait;";
 
-use Exporter 'import';
+use base 'Exporter';
 our @EXPORT_OK = qw/ setTimeout clearTimeout setInterval clearInterval Promise Observable throw async_sub await /;
 
+sub import {
+	my ($class, @params) = @_;
+
+	if (grep /\A(async_sub|await)\z/, @params) {
+		if (! eval "use Async::JS::AsyncAwait; 1") {
+			die "Couldn't load Async::JS::AsyncAwait; maybe you haven't installed the Coro module?";
+		}
+	}
+
+	__PACKAGE__->export_to_level(1, $class, @params);
+}
 
 sub setTimeout {
 	my ($func, $interval) = @_;
